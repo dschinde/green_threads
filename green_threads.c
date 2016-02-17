@@ -157,7 +157,6 @@ void do_work()
 	int id = ++x;
 	for (uint64_t i = 0; i < 10000000; i++) {
 		printf("%d %lu\n", id, i);
-		gt_schedule();
 	}
 }
 
