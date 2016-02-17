@@ -1,8 +1,11 @@
 #include <assert.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #define MAX_THREADS (4)
 
@@ -34,9 +37,41 @@ void gt_switch(struct gt_context *old, struct gt_context *new);
 bool gt_schedule();
 static void gt_stop();
 int gt_create(void (*function)());
+static void gt_alarm_handler(int signum);
 
 void gt_init()
 {
+	// Set up the signal handler
+	
+	struct sigaction action;
+	memset(&action, 0, sizeof(action));
+	
+	action.sa_handler = gt_alarm_handler;
+	action.sa_flags = SA_NODEFER;
+	
+	if (sigaction(SIGALRM, &action, NULL) != 0) {
+		fputs("Error in sigaction()\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+	
+	// Set up the timer
+	
+	const struct itimerval timer = {
+		.it_interval = {
+			.tv_sec = 0,
+			.tv_usec = 20000
+		},
+		.it_value = {
+			.tv_sec = 0,
+			.tv_usec = 20000
+		}
+	};
+	
+	if (setitimer(ITIMER_REAL, &timer, NULL) != 0) {
+		fputs("Error in setitimer()\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+	
 	current_gt = &gt_table[0];
 	current_gt->state = Running;
 }
@@ -108,6 +143,11 @@ int gt_create(void (*function)())
 	p->state = Ready;
 
 	return 0;
+}
+
+void gt_alarm_handler(int signum)
+{
+	gt_schedule();
 }
 
 void do_work()
